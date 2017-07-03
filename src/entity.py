@@ -5,3 +5,6 @@ class Entity():
         self.x = x
         self.y = y
         self.sprite = sprite
+        self.combat_component = 0
+        if self.combat_component:
+            self.combat_component.parent = self
