@@ -4,8 +4,14 @@ import pygame as pyg
 import pyRL.colors as colors
 import pyRL.random_level_gen as rlg
 import pyRL.fov as fov
-
+import pyRL.panel as panel
 from entity import *
+
+# TODO
+'''
+Setup method to read in external files on container defintions for things like the map, enemies, and items
+Implement the pyRL panel for the game screen
+'''
 
 pyg.init()
 GAME_VERSION = '0.0.0'
@@ -17,16 +23,19 @@ fps_counter = 0
 
 SCALE = 4
 TILE_DIMENSION = int(8*SCALE)
-window_size = window_width, window_height = 1600, 900
+window_size = window_width, window_height = 1600, 960
 SCREEN_CENTER = (window_width//2, window_height//2)
 screen = pyg.display.set_mode(window_size)
-dungeon_size = (32, 32)
+dungeon_size = (30, 30)
 player = Entity(x=1, y=1)
 entities = [player]
 fov = fov.FOV()
 colors = colors.Colors()
-dungeon = rlg.RandomLevelGen(level_width=dungeon_size[0], level_height=dungeon_size[1], max_rooms=100, room_min_size=4, room_max_size=6)
+dungeon = rlg.RandomLevelGen(level_width=dungeon_size[0], level_height=dungeon_size[1], max_rooms=100, room_min_size=3, room_max_size=6)
 dungeon.make_level(entities)
+for y in range(dungeon_size[1]):
+    for x in range(dungeon_size[0]):
+        fov.explored_tiles.append((x, y))
 sprites = dict(wall=pyg.image.load(os.path.join('..', 'assets', 'sprites',
                                               'wall.png')).convert(),
                floor=pyg.image.load(os.path.join('..', 'assets', 'sprites',
@@ -85,11 +94,13 @@ def update(clock):
 
 def render():
     global fov
-    screen.fill(colors.DRK_GRAY)
-    explored_wall = color_sprite(sprites['wall'], colors.DRK_BLUE)
-    explored_floor = color_sprite(sprites['floor'], colors.BLUE)
-    visible_wall = color_sprite(sprites['wall'], colors.DRK_YELLOW)
-    visible_floor = color_sprite(sprites['floor'], colors.YELLOW)
+    screen.fill(colors.BLACK)
+    explored_wall = color_sprite(sprites['wall'], colors.RED)
+    explored_floor = color_sprite(sprites['floor'], colors.DRK_RED)
+    visible_wall = color_sprite(sprites['wall'], colors.GRAY)
+    visible_floor = color_sprite(sprites['floor'], colors.DRK_GRAY)
+    player_sprite = color_sprite(sprites['player'], colors.BLU_GRY)
+
     for ex in fov.explored_tiles:
         if dungeon.level[ex[0]][ex[1]] == 1:
             screen.blit(explored_wall, (TILE_DIMENSION*ex[0]+screen_offset[0], TILE_DIMENSION*ex[1]+screen_offset[1]))
@@ -101,7 +112,7 @@ def render():
         else:
             screen.blit(visible_floor, (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
         if (v == (player.x, player.y)):
-            screen.blit(sprites['player'], (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
+            screen.blit(player_sprite, (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
 
     screen.blit(ui_font.render(str(('{:.2f}'.format(fps_counter))), 1, colors.GREEN), (0, 0))
     pyg.display.flip()

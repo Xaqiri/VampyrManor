@@ -1,0 +1,10 @@
+INFLUENCES
+  *  Mordor:  Depths of Dejenol
+  *  Castlevania, Bloodborne, Steampunk
+
+GAME DESIGN
+  *  30x30 predesigned maps
+  *  Can choose to play a solo character or create up to a 4 person party
+  *  Player can choose from various races for their characters
+  *  Each character can join various guilds (classes)
+  *  ~15-18 levels total, with different zones (tile sets) every ~3 levels
