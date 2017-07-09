@@ -8,3 +8,6 @@ GAME DESIGN
   *  Player can choose from various races for their characters
   *  Each character can join various guilds (classes)
   *  ~15-18 levels total, with different zones (tile sets) every ~3 levels
+  *  Enemies come in packs just like the player
+  *  Can be multiple packs per room
+  
