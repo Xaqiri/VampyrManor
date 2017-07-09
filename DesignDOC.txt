@@ -10,4 +10,12 @@ GAME DESIGN
   *  ~15-18 levels total, with different zones (tile sets) every ~3 levels
   *  Enemies come in packs just like the player
   *  Can be multiple packs per room
-  
+
+LORE
+  *  Story isn't given to the player, they must piece together the lore
+  *  Lore can be in the form of books, paintings, inscriptions, etc
+  *  Items will have lore blurbs a la Bloodborne
+  *  Characters will have language skills
+    * Can't read a text if character lacks skill in the language
+    * Possible translator npc in town
+    
