@@ -10,6 +10,8 @@ from entity import *
 # TODO
 '''
 Setup method to read in external files that contain  definitions for things like the map, enemies, and items
+Make dungeon size unrelated to window size
+Make dungeon stationary if it fits in the window, scroll otherwise
 '''
 
 pyg.init()
@@ -20,33 +22,29 @@ font_size = 24
 ui_font = pyg.font.SysFont('consolas', font_size)
 fps_counter = 0
 
-SCALE = 4
+SCALE = 2
 TILE_DIMENSION = int(8*SCALE)
-window_size = window_width, window_height = 1600, 960
-SCREEN_CENTER = (window_width//2, window_height//2)
+WIN_WIDTH = 800*SCALE
+WIN_HEIGHT = 480*SCALE
+window_size = WIN_WIDTH, WIN_HEIGHT
+SCREEN_CENTER = (WIN_WIDTH//2, WIN_HEIGHT//2)
 screen = pyg.display.set_mode(window_size)
-side_panel = panel.Panel(screen=screen, origin=(window_width*.6, 0), width=window_width*.4, height=window_height*.80, bg_color=colors.Colors.DRK_GREEN, visible=True)
-game_panel = panel.Panel(screen=screen, origin=(0, 0), width=window_width*.6, height=window_height, bg_color=colors.Colors.CYAN, visible=True)
-bottom_panel = panel.Panel(screen=screen, origin=(window_width*.6, window_height*.80), width=window_width*.4, height=window_height*.2, bg_color=colors.Colors.DRK_YELLOW, visible=True)
-panels = [game_panel, side_panel, bottom_panel]
+game_panel = panel.Panel(screen=screen, origin=(0, 0), width=WIN_WIDTH*.6, height=WIN_HEIGHT, fg_color=colors.Colors.PURPLE, bg_color=colors.Colors.BLACK, visible=True)
+inventory_panel = panel.Panel(screen=screen, origin=(WIN_WIDTH*.6, 0), width=WIN_WIDTH*.2, height=WIN_HEIGHT*.40, fg_color=colors.Colors.PURPLE, bg_color=colors.Colors.DRK_GREEN, visible=True, name='Inventory')
+char_stats_panel = panel.Panel(screen=screen, origin=(WIN_WIDTH*.8, 0), width=WIN_WIDTH*.2, height=WIN_HEIGHT*.40, fg_color=colors.Colors.PURPLE, bg_color=colors.Colors.DRK_PURPLE, visible=True, name='Stats')
+party_panel = panel.Panel(screen=screen, origin=(WIN_WIDTH*.6, WIN_HEIGHT*.4), width=WIN_WIDTH*.4, height=WIN_HEIGHT*.4, fg_color=colors.Colors.PURPLE, bg_color=colors.Colors.DRK_BLUE, visible=True, name='Party')
+message_panel = panel.Panel(screen=screen, origin=(WIN_WIDTH*.6, WIN_HEIGHT*.80), width=WIN_WIDTH*.4, height=WIN_HEIGHT*.2, fg_color=colors.Colors.PURPLE, bg_color=colors.Colors.DRK_YELLOW, visible=True, name='Message Log')
+panels = [inventory_panel, message_panel, party_panel, char_stats_panel]
 # Dungeon size is based on a scale of 2
 # 75% of the width of the window / 16px/tile = 75 tiles
 # 7/8 (87.5%) of the height of the window / 16px/tile = 49 tiles
-dungeon_size = (30, 30)
-
+dungeon_size = (60, 60)
+dungeon = 0
 player = Entity(x=1, y=1)
 entities = [player]
 player_took_turn = False
-fov = fov.FOV(vision_range=3)
+fov = fov.FOV(vision_range=5)
 colors = colors.Colors()
-dungeon = rlg.RandomLevelGen(level_width=dungeon_size[0], level_height=dungeon_size[1], max_rooms=150, room_min_size=6, room_max_size=10)
-dungeon.make_level(entities)
-
-# Display entire level.  Will make this an option in pyRL in the
-# future
-for y in range(dungeon_size[1]):
-    for x in range(dungeon_size[0]):
-        fov.explored_tiles.append((x, y))
 
 sprites = dict(wall=pyg.image.load(os.path.join('..', 'assets', 'sprites',
                                               'wall.png')).convert(),
@@ -70,9 +68,24 @@ def color_sprite(sprite, color):
     new_sprite.set_colorkey(colors.TRANS)
     return new_sprite
 
+def make_map():
+    global dungeon, dungeon_size, fov, entities
+    dungeon = 0
+    fov.explored_tiles = []
+    dungeon = rlg.RandomLevelGen(level_width=dungeon_size[0], level_height=dungeon_size[1], max_rooms=150, room_min_size=4, room_max_size=8)
+    dungeon.make_level(entities)
+
+    # Display entire level.  Will make this an option in pyRL in the
+    # future
+    for y in range(dungeon_size[1]):
+        for x in range(dungeon_size[0]):
+            fov.explored_tiles.append((x, y))
+
+
 def main():
     done = False
     clock = pyg.time.Clock()
+    make_map()
     fov.update(entities=entities, level=dungeon.level)
     while not done:
         input()
@@ -98,6 +111,8 @@ def input():
                 move(-1, 0)
             if e.key == pyg.K_RIGHT:
                 move(1, 0)
+            if e.key == pyg.K_r:
+                make_map()
             player_took_turn = True
 
 def update(clock):
@@ -117,9 +132,7 @@ def render():
     visible_wall = color_sprite(sprites['wall'], colors.GRAY)
     visible_floor = color_sprite(sprites['floor'], colors.DRK_GRAY)
     player_sprite = color_sprite(sprites['player'], colors.BLU_GRY)
-    for p in panels:
-        p.render()
-
+    game_panel.render(ui_font)
     for ex in fov.explored_tiles:
         if dungeon.level[ex[0]][ex[1]] == 1:
             screen.blit(explored_wall, (TILE_DIMENSION*ex[0]+screen_offset[0], TILE_DIMENSION*ex[1]+screen_offset[1]))
@@ -133,9 +146,9 @@ def render():
         if (v == (player.x, player.y)):
             screen.blit(player_sprite, (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
 
+    for p in panels:
+        p.render(ui_font)
     render_fps(fps_counter)
-    screen.blit(ui_font.render('Inventory', 1, colors.PURPLE), side_panel.origin)
-    screen.blit(ui_font.render('Message Log', 1, colors.PURPLE), bottom_panel.origin)
     pyg.display.flip()
 
 def move(x, y):
