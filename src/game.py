@@ -21,14 +21,16 @@ ui_font = pyg.font.SysFont('consolas', font_size)
 
 SCALE = 2
 TILE_DIMENSION = int(8*SCALE)
-WIN_WIDTH = 1600//2
-WIN_HEIGHT = 960//2
+WIN_WIDTH = 1600
+WIN_HEIGHT = 960
 WIN_SIZE = WIN_WIDTH, WIN_HEIGHT
 GAME_PANEL_SIZE = WIN_WIDTH*.75, WIN_HEIGHT
 GAME_PANEL_CENTER = (GAME_PANEL_SIZE[0]//2, GAME_PANEL_SIZE[1]//2)
+DUNGEON_SIZE = (200, 200)
 NUM_X_TILES = int(GAME_PANEL_SIZE[0]/TILE_DIMENSION)
 NUM_Y_TILES = int(GAME_PANEL_SIZE[1]/TILE_DIMENSION)
 UI_PANEL_SIZE = WIN_WIDTH*.25, WIN_HEIGHT
+FOV_MODE = 'unexplored'
 screen = pyg.display.set_mode(WIN_SIZE)
 colors = colors.Colors()
 
@@ -42,9 +44,11 @@ message_panel = panel.Panel(screen=screen, origin=(ui_panel.origin[0], party_pan
 panels = [game_panel, ui_panel, inventory_panel, char_stats_panel, party_panel, message_panel]
 
 sprites = dict(wall=pyg.image.load(os.path.join('..', 'assets', 'sprites',
-                                              'wall.png')).convert(),
+                                              'wall2.png')).convert(),
+               wall2=pyg.image.load(os.path.join('..', 'assets', 'sprites',
+                                                     'wall2.png')).convert(),
                floor=pyg.image.load(os.path.join('..', 'assets', 'sprites',
-                                               'floor.png')).convert(),
+                                               'wall2.png')).convert(),
                player=pyg.image.load(os.path.join('..', 'assets', 'sprites',
                                                 'player.png')).convert(),
                goon=pyg.image.load(os.path.join('..', 'assets', 'sprites',
@@ -56,27 +60,32 @@ for i in sprites:
     sprites[i] = pyg.transform.scale(sprites[i], (TILE_DIMENSION, TILE_DIMENSION))
 
 def main():
+    tile_colors = dict(
+        unexplored_tile = color_sprite(sprites['wall2'], colors.DRKR_GRAY),
+        explored_wall = color_sprite(sprites['wall2'], colors.RED),
+        explored_floor = color_sprite(sprites['floor'], colors.DRK_RED),
+        visible_wall = color_sprite(sprites['wall'], colors.GRAY),
+        visible_floor = color_sprite(sprites['floor'], colors.DRK_GRAY),
+        player_sprite = color_sprite(sprites['player'], colors.BLU_GRY)
+    )
     player_took_turn = False
 
-    fov = pyRL.fov.FOV(vision_range=5)
     player = Entity(x=1, y=1)
     entities = [player]
 
-    # Dungeon size is based on a scale of 2
-    # 75% of the width of the window / 16px/tile = 75 tiles
-    # 7/8 (87.5%) of the height of the window / 16px/tile = 49 tiles
-    dungeon_size = (60, 60)
-    dungeon = make_map(fov, dungeon_size, entities)
+    fov = pyRL.fov.FOV(vision_range=10, level_width=DUNGEON_SIZE[0], level_height=DUNGEON_SIZE[1], fov_mode=FOV_MODE)
+    dungeon = make_map(fov, DUNGEON_SIZE, entities)
 
     fov.update(entities=entities, level=dungeon.level)
     screen_offset = (0, 0)
+    mode = 'nonscroll'
     done = False
     clock = pyg.time.Clock()
     fps_counter = 0
     while not done:
-        player_took_turn, dungeon = input(dungeon, player, player_took_turn, fov, dungeon_size, entities)
-        fps_counter, player_took_turn = update(clock, player_took_turn, fps_counter, fov, entities, dungeon)
-        render(fov, dungeon, player, fps_counter)
+        player_took_turn, dungeon = input(dungeon, player, player_took_turn, fov, DUNGEON_SIZE, entities)
+        fps_counter, player_took_turn, mode = update(clock, player_took_turn, fps_counter, fov, entities, dungeon)
+        render(fov, dungeon, player, fps_counter, tile_colors)
         clock.tick(60)
     p.quit()
 
@@ -88,21 +97,14 @@ def color_sprite(sprite, color):
     new_sprite.set_colorkey(colors.TRANS)
     return new_sprite
 
-def make_map(fov, dungeon_size, entities):
+def make_map(fov, DUNGEON_SIZE, entities):
     dungeon = 0
-    fov.explored_tiles = []
-    dungeon = rlg.RandomLevelGen(level_width=dungeon_size[0], level_height=dungeon_size[1], max_rooms=150, room_min_size=4, room_max_size=8)
+    fov.clear()
+    dungeon = rlg.RandomLevelGen(level_width=DUNGEON_SIZE[0], level_height=DUNGEON_SIZE[1], max_rooms=600, room_min_size=4, room_max_size=12)
     dungeon.make_level(entities)
-
-    # Display entire level.  Will make this an option in pyRL in the
-    # future
-    for y in range(dungeon_size[1]):
-        for x in range(dungeon_size[0]):
-            fov.explored_tiles.append((x, y))
-
     return dungeon
 
-def input(dungeon, player, player_took_turn, fov, dungeon_size, entities):
+def input(dungeon, player, player_took_turn, fov, DUNGEON_SIZE, entities):
     pyg.event.pump()
     for e in pyg.event.get():
         if e.type == pyg.QUIT:
@@ -119,7 +121,7 @@ def input(dungeon, player, player_took_turn, fov, dungeon_size, entities):
             if e.key == pyg.K_RIGHT:
                 move(dungeon, player, 1, 0)
             if e.key == pyg.K_r:
-                dungeon = make_map(fov, dungeon_size, entities)
+                dungeon = make_map(fov, DUNGEON_SIZE, entities)
             player_took_turn = True
     return player_took_turn, dungeon
 
@@ -136,33 +138,36 @@ def update(clock, player_took_turn, fps_counter, fov, entities, dungeon):
         screen_offset = [GAME_PANEL_CENTER[0]-entities[0].x*TILE_DIMENSION, GAME_PANEL_CENTER[1]-entities[0].y*TILE_DIMENSION]
     elif mode == 'nonscroll':
         screen_offset = game_panel.origin
-    return clock.get_fps(), player_took_turn
+    return clock.get_fps(), player_took_turn, mode
 
-def render(fov, dungeon, player, fps_counter):
+def render(fov, dungeon, player, fps_counter, tile_colors):
     global screen_offset
     screen.fill(colors.BLACK)
-    explored_wall = color_sprite(sprites['wall'], colors.RED)
-    explored_floor = color_sprite(sprites['floor'], colors.DRK_RED)
-    visible_wall = color_sprite(sprites['wall'], colors.GRAY)
-    visible_floor = color_sprite(sprites['floor'], colors.DRK_GRAY)
-    player_sprite = color_sprite(sprites['player'], colors.BLU_GRY)
     for p in panels:
         p.render(ui_font)
 
-    for ex in fov.explored_tiles:
-        if tile_in_bounds(ex):
-            if dungeon.level[ex[0]][ex[1]] == 1:
-                screen.blit(explored_wall, (TILE_DIMENSION*ex[0]+screen_offset[0], TILE_DIMENSION*ex[1]+screen_offset[1]))
+    # Draw explored tiles
+    y_min_range = player.y-NUM_Y_TILES//2 if player.y-NUM_Y_TILES//2 > 0 else 0
+    y_max_range = min(player.y+NUM_Y_TILES//2, dungeon.level_height) if NUM_Y_TILES < dungeon.level_height else dungeon.level_height
+    x_min_range = player.x-NUM_X_TILES//2 if player.x-NUM_X_TILES//2 > 0 else 0
+    x_max_range = min(player.x+NUM_X_TILES//2, dungeon.level_width) if NUM_X_TILES < dungeon.level_width else dungeon.level_width
+    for y in range(y_min_range, y_max_range):
+        for x in range(x_min_range, x_max_range):
+            if fov.explored_tiles[x][y] == 1:
+                if dungeon.level[x][y] == 1:
+                    screen.blit(tile_colors['explored_wall'], (TILE_DIMENSION*x+screen_offset[0], TILE_DIMENSION*y+screen_offset[1]))
+                else:
+                    screen.blit(tile_colors['explored_floor'], (TILE_DIMENSION*x+screen_offset[0], TILE_DIMENSION*y+screen_offset[1]))
             else:
-                screen.blit(explored_floor, (TILE_DIMENSION*ex[0]+screen_offset[0], TILE_DIMENSION*ex[1]+screen_offset[1]))
+                screen.blit(tile_colors['unexplored_tile'], (TILE_DIMENSION*x+screen_offset[0], TILE_DIMENSION*y+screen_offset[1]))
     for v in fov.visible_tiles:
         if tile_in_bounds(v):
             if dungeon.level[v[0]][v[1]] == 1:
-                screen.blit(visible_wall, (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
+                screen.blit(tile_colors['visible_wall'], (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
             else:
-                screen.blit(visible_floor, (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
+                screen.blit(tile_colors['visible_floor'], (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
             if (v == (player.x, player.y)):
-                screen.blit(player_sprite, (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
+                screen.blit(tile_colors['player_sprite'], (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
 
     render_fps(fps_counter)
     pyg.display.flip()
