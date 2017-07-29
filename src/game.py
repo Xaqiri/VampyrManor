@@ -201,9 +201,18 @@ def tile_in_bounds(tile):
     return False
 
 def move(dungeon, player, x, y):
-    if (dungeon.level[player.x + x][player.y + y] != 1):
-        player.x = player.x + x
-        player.y = player.y + y
+    dx = player.x + x
+    dy = player.y + y
+    can_move = True
+    if (dungeon.level[dx][dy] != 1):
+        for e in dungeon.entities:
+            if (e.x, e.y) == (dx, dy):
+                print('You bump into the rat')
+                can_move = False
+                break
+        if can_move:
+            player.x = dx
+            player.y = dy
 
 def render_fps(fps_counter):
     pyg.draw.rect(screen, colors.BLACK, ((0, 0), (72, 24)))
