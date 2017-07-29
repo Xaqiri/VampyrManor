@@ -6,11 +6,13 @@ import pyRL.random_level_gen as rlg
 import pyRL.fov
 import pyRL.panel as panel
 from entity import *
+import monsters
 
 # TODO
 '''
 Setup method to read in external files that contain  definitions for things like the map, enemies, and items
 Add options for starting the game explored/unexplored
+Change enemy generation.  Send MAX_ENEMIES to pyRL.random_level_gen.  Randomly generate coordinates for all entities, then send entity_coordinate array back to game.py to actually generate the entities 
 '''
 
 pyg.init()
@@ -75,16 +77,22 @@ def main():
         explored_floor = color_sprite(sprites['floor'], colors.DRKR_GRAY),
         visible_wall = color_sprite(sprites['wall'], colors.GRAY),
         visible_floor = color_sprite(sprites['floor'], colors.BLACK),
-        player_sprite = color_sprite(sprites['player'], colors.BLU_GRY)
+        player_sprite = color_sprite(sprites['player'], colors.BLU_GRY),
+        rat_sprite = color_sprite(sprites['goon'], colors.RED)
     )
     player_took_turn = False
 
     player = Entity(x=1, y=1)
     entities = [player]
-
     fov = pyRL.fov.FOV(vision_range=8, level_width=DUNGEON_SIZE[0], level_height=DUNGEON_SIZE[1], fov_mode=FOV_MODE)
     dungeon = make_map(fov, DUNGEON_SIZE, entities)
 
+    # Generate monsters
+    for i in range(500):
+        rat = monsters.generate_rat(tile_colors['rat_sprite'], dungeon)
+        entities.append(rat)
+
+    print(len(entities))
     fov.update(entities=entities, level=dungeon.level)
     screen_offset = (0, 0)
     mode = 'nonscroll'
@@ -94,7 +102,7 @@ def main():
     while not done:
         player_took_turn, dungeon = input(dungeon, player, player_took_turn, fov, DUNGEON_SIZE, entities)
         fps_counter, player_took_turn, mode = update(clock, player_took_turn, fps_counter, fov, entities, dungeon)
-        render(fov, dungeon, player, fps_counter, tile_colors)
+        render(fov, dungeon, player, fps_counter, tile_colors, entities)
         clock.tick(60)
     p.quit()
 
@@ -149,7 +157,7 @@ def update(clock, player_took_turn, fps_counter, fov, entities, dungeon):
         screen_offset = game_panel.origin
     return clock.get_fps(), player_took_turn, mode
 
-def render(fov, dungeon, player, fps_counter, tile_colors):
+def render(fov, dungeon, player, fps_counter, tile_colors, entities):
     global screen_offset
     screen.fill(colors.BLACK)
     for p in panels:
@@ -177,7 +185,9 @@ def render(fov, dungeon, player, fps_counter, tile_colors):
                 screen.blit(tile_colors['visible_floor'], (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
             if (v == (player.x, player.y)):
                 screen.blit(tile_colors['player_sprite'], (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
-
+    for e in entities:
+        if e is not player and (e.x, e.y) in fov.visible_tiles:
+            screen.blit(e.sprite, (TILE_DIMENSION*e.x+screen_offset[0], TILE_DIMENSION*e.y+screen_offset[1]))
     render_fps(fps_counter)
     pyg.display.flip()
 
