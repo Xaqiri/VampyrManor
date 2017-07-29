@@ -12,7 +12,7 @@ import monsters
 '''
 Setup method to read in external files that contain  definitions for things like the map, enemies, and items
 Add options for starting the game explored/unexplored
-Change enemy generation.  Send MAX_ENEMIES to pyRL.random_level_gen.  Randomly generate coordinates for all entities, then send entity_coordinate array back to game.py to actually generate the entities 
+BUG - Enemies can spawn on player
 '''
 
 pyg.init()
@@ -32,6 +32,7 @@ GAME_PANEL_CENTER = (GAME_PANEL_SIZE[0]//2, GAME_PANEL_SIZE[1]//2)
 DUNGEON_SIZE = (200, 200)
 NUM_X_TILES = int(GAME_PANEL_SIZE[0]/TILE_DIMENSION)
 NUM_Y_TILES = int(GAME_PANEL_SIZE[1]/TILE_DIMENSION)
+MAX_ENEMIES_PER_ROOM = 3
 UI_PANEL_SIZE = WIN_WIDTH*.25, WIN_HEIGHT
 FOV_MODE = 'unexplored'
 screen = pyg.display.set_mode(WIN_SIZE)
@@ -54,8 +55,8 @@ sprites = dict(wall=pyg.image.load(os.path.join('..', 'assets', 'sprites',
                                                'wall2.png')).convert(),
                player=pyg.image.load(os.path.join('..', 'assets', 'sprites',
                                                 'player.png')).convert(),
-               goon=pyg.image.load(os.path.join('..', 'assets', 'sprites',
-                                                 'goon.png')).convert())
+               r=pyg.image.load(os.path.join('..', 'assets', 'sprites',
+                                                 'r.png')).convert())
 
 # Goes through each sprite and sets a certain color to be transparent and scales it to the appropriate dimensions
 for i in sprites:
@@ -78,33 +79,33 @@ def main():
         visible_wall = color_sprite(sprites['wall'], colors.GRAY),
         visible_floor = color_sprite(sprites['floor'], colors.BLACK),
         player_sprite = color_sprite(sprites['player'], colors.BLU_GRY),
-        rat_sprite = color_sprite(sprites['goon'], colors.RED)
+        rat_sprite = color_sprite(sprites['r'], colors.BROWN)
     )
     player_took_turn = False
 
     player = Entity(x=1, y=1)
     entities = [player]
     fov = pyRL.fov.FOV(vision_range=8, level_width=DUNGEON_SIZE[0], level_height=DUNGEON_SIZE[1], fov_mode=FOV_MODE)
-    dungeon = make_map(fov, DUNGEON_SIZE, entities)
+    dungeon = make_map(fov, DUNGEON_SIZE, entities, MAX_ENEMIES_PER_ROOM, tile_colors)
 
-    # Generate monsters
-    for i in range(500):
-        rat = monsters.generate_rat(tile_colors['rat_sprite'], dungeon)
-        entities.append(rat)
-
-    print(len(entities))
-    fov.update(entities=entities, level=dungeon.level)
+    fov.update(entities=dungeon.entities, level=dungeon.level)
     screen_offset = (0, 0)
     mode = 'nonscroll'
     done = False
     clock = pyg.time.Clock()
     fps_counter = 0
+
     while not done:
-        player_took_turn, dungeon = input(dungeon, player, player_took_turn, fov, DUNGEON_SIZE, entities)
-        fps_counter, player_took_turn, mode = update(clock, player_took_turn, fps_counter, fov, entities, dungeon)
-        render(fov, dungeon, player, fps_counter, tile_colors, entities)
+        player_took_turn, dungeon = input(dungeon, player, player_took_turn, fov, DUNGEON_SIZE, tile_colors)
+        fps_counter, player_took_turn, mode = update(clock, player_took_turn, fps_counter, fov, dungeon)
+        render(fov, dungeon, player, fps_counter, tile_colors)
         clock.tick(60)
     p.quit()
+
+def spawn_enemies(dungeon, tile_colors):
+    for i in range(1, len(dungeon.entities)):
+        rat = monsters.generate_rat(dungeon.entities[i][0], dungeon.entities[i][1], tile_colors['rat_sprite'], dungeon)
+        dungeon.entities[i] = rat
 
 def color_sprite(sprite, color):
     new_sprite = sprite.copy()
@@ -114,14 +115,15 @@ def color_sprite(sprite, color):
     new_sprite.set_colorkey(colors.TRANS)
     return new_sprite
 
-def make_map(fov, DUNGEON_SIZE, entities):
+def make_map(fov, DUNGEON_SIZE, entities, MAX_ENEMIES_PER_ROOM, tile_colors):
     dungeon = 0
     fov.clear()
-    dungeon = rlg.RandomLevelGen(level_width=DUNGEON_SIZE[0], level_height=DUNGEON_SIZE[1], max_rooms=600, room_min_size=4, room_max_size=12)
-    dungeon.make_level(entities)
+    dungeon = rlg.RandomLevelGen(level_width=DUNGEON_SIZE[0], level_height=DUNGEON_SIZE[1], max_rooms=600, room_min_size=4, room_max_size=12, entities=entities)
+    dungeon.make_level(MAX_ENEMIES_PER_ROOM=MAX_ENEMIES_PER_ROOM)
+    spawn_enemies(dungeon, tile_colors)
     return dungeon
 
-def input(dungeon, player, player_took_turn, fov, DUNGEON_SIZE, entities):
+def input(dungeon, player, player_took_turn, fov, DUNGEON_SIZE, tile_colors):
     pyg.event.pump()
     for e in pyg.event.get():
         if e.type == pyg.QUIT:
@@ -138,26 +140,27 @@ def input(dungeon, player, player_took_turn, fov, DUNGEON_SIZE, entities):
             if e.key == pyg.K_RIGHT:
                 move(dungeon, player, 1, 0)
             if e.key == pyg.K_r:
-                dungeon = make_map(fov, DUNGEON_SIZE, entities)
+                p = dungeon.entities[0]
+                dungeon = make_map(fov, DUNGEON_SIZE, [p], MAX_ENEMIES_PER_ROOM, tile_colors)
             player_took_turn = True
     return player_took_turn, dungeon
 
-def update(clock, player_took_turn, fps_counter, fov, entities, dungeon):
+def update(clock, player_took_turn, fps_counter, fov, dungeon):
     global screen_offset
     if NUM_X_TILES < dungeon.size[0] or NUM_Y_TILES < dungeon.size[1]:
         mode = 'scroll'
     else:
         mode = 'nonscroll'
     if player_took_turn:
-        fov.update(entities=entities, level=dungeon.level)
+        fov.update(entities=dungeon.entities, level=dungeon.level)
         player_took_turn = False
     if mode == 'scroll':
-        screen_offset = [GAME_PANEL_CENTER[0]-entities[0].x*TILE_DIMENSION, GAME_PANEL_CENTER[1]-entities[0].y*TILE_DIMENSION]
+        screen_offset = [GAME_PANEL_CENTER[0]-dungeon.entities[0].x*TILE_DIMENSION, GAME_PANEL_CENTER[1]-dungeon.entities[0].y*TILE_DIMENSION]
     elif mode == 'nonscroll':
         screen_offset = game_panel.origin
     return clock.get_fps(), player_took_turn, mode
 
-def render(fov, dungeon, player, fps_counter, tile_colors, entities):
+def render(fov, dungeon, player, fps_counter, tile_colors):
     global screen_offset
     screen.fill(colors.BLACK)
     for p in panels:
@@ -185,7 +188,7 @@ def render(fov, dungeon, player, fps_counter, tile_colors, entities):
                 screen.blit(tile_colors['visible_floor'], (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
             if (v == (player.x, player.y)):
                 screen.blit(tile_colors['player_sprite'], (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
-    for e in entities:
+    for e in dungeon.entities:
         if e is not player and (e.x, e.y) in fov.visible_tiles:
             screen.blit(e.sprite, (TILE_DIMENSION*e.x+screen_offset[0], TILE_DIMENSION*e.y+screen_offset[1]))
     render_fps(fps_counter)
@@ -201,9 +204,6 @@ def move(dungeon, player, x, y):
     if (dungeon.level[player.x + x][player.y + y] != 1):
         player.x = player.x + x
         player.y = player.y + y
-
-def gen_goon(x, y):
-    pass
 
 def render_fps(fps_counter):
     pyg.draw.rect(screen, colors.BLACK, ((0, 0), (72, 24)))
