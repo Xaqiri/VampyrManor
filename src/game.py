@@ -10,6 +10,7 @@ from entity import *
 # TODO
 '''
 Setup method to read in external files that contain  definitions for things like the map, enemies, and items
+Add options for starting the game explored/unexplored
 '''
 
 pyg.init()
@@ -26,7 +27,7 @@ WIN_HEIGHT = 960
 WIN_SIZE = WIN_WIDTH, WIN_HEIGHT
 GAME_PANEL_SIZE = WIN_WIDTH*.75, WIN_HEIGHT
 GAME_PANEL_CENTER = (GAME_PANEL_SIZE[0]//2, GAME_PANEL_SIZE[1]//2)
-DUNGEON_SIZE = (60, 60)
+DUNGEON_SIZE = (200, 200)
 NUM_X_TILES = int(GAME_PANEL_SIZE[0]/TILE_DIMENSION)
 NUM_Y_TILES = int(GAME_PANEL_SIZE[1]/TILE_DIMENSION)
 UI_PANEL_SIZE = WIN_WIDTH*.25, WIN_HEIGHT
@@ -60,12 +61,20 @@ for i in sprites:
     sprites[i] = pyg.transform.scale(sprites[i], (TILE_DIMENSION, TILE_DIMENSION))
 
 def main():
+    # tile_colors = dict(
+    #     unexplored_tile = color_sprite(sprites['wall2'], colors.DRKR_GRAY),
+    #     explored_wall = color_sprite(sprites['wall2'], colors.RED),
+    #     explored_floor = color_sprite(sprites['floor'], colors.DRK_RED),
+    #     visible_wall = color_sprite(sprites['wall'], colors.GRAY),
+    #     visible_floor = color_sprite(sprites['floor'], colors.DRK_GRAY),
+    #     player_sprite = color_sprite(sprites['player'], colors.BLU_GRY)
+    # )
     tile_colors = dict(
-        unexplored_tile = color_sprite(sprites['wall2'], colors.DRKR_GRAY),
-        explored_wall = color_sprite(sprites['wall2'], colors.RED),
-        explored_floor = color_sprite(sprites['floor'], colors.DRK_RED),
+        unexplored_tile = color_sprite(sprites['wall2'], colors.DRK_RED),
+        explored_wall = color_sprite(sprites['wall2'], colors.DRK_GRAY),
+        explored_floor = color_sprite(sprites['floor'], colors.DRKR_GRAY),
         visible_wall = color_sprite(sprites['wall'], colors.GRAY),
-        visible_floor = color_sprite(sprites['floor'], colors.DRK_GRAY),
+        visible_floor = color_sprite(sprites['floor'], colors.BLACK),
         player_sprite = color_sprite(sprites['player'], colors.BLU_GRY)
     )
     player_took_turn = False
@@ -73,7 +82,7 @@ def main():
     player = Entity(x=1, y=1)
     entities = [player]
 
-    fov = pyRL.fov.FOV(vision_range=10, level_width=DUNGEON_SIZE[0], level_height=DUNGEON_SIZE[1], fov_mode=FOV_MODE)
+    fov = pyRL.fov.FOV(vision_range=8, level_width=DUNGEON_SIZE[0], level_height=DUNGEON_SIZE[1], fov_mode=FOV_MODE)
     dungeon = make_map(fov, DUNGEON_SIZE, entities)
 
     fov.update(entities=entities, level=dungeon.level)
@@ -147,10 +156,10 @@ def render(fov, dungeon, player, fps_counter, tile_colors):
         p.render(ui_font)
 
     # Draw explored tiles
-    y_min_range = min(0, player.y-NUM_Y_TILES//2)
-    y_max_range = min(player.y+NUM_Y_TILES//2, dungeon.level_height) if NUM_Y_TILES < dungeon.level_height else dungeon.level_height
-    x_min_range = min(0, player.x-NUM_X_TILES//2)
-    x_max_range = min(player.x+NUM_X_TILES//2, dungeon.level_width) if NUM_X_TILES < dungeon.level_width else dungeon.level_width
+    y_min_range = player.y-NUM_Y_TILES//2 if player.y-NUM_Y_TILES//2 > 0 else 0
+    y_max_range = player.y+NUM_Y_TILES//2 if player.y+NUM_Y_TILES//2 < dungeon.level_height else dungeon.level_height
+    x_min_range = player.x-NUM_X_TILES//2 if player.x-NUM_X_TILES//2 > 0 else 0
+    x_max_range = player.x+NUM_X_TILES//2 if player.x+NUM_X_TILES//2 < dungeon.level_width else dungeon.level_width
     for y in range(y_min_range, y_max_range):
         for x in range(x_min_range, x_max_range):
             if fov.explored_tiles[x][y] == 1:
