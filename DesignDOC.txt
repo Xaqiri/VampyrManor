@@ -3,23 +3,17 @@ Guild Level   - GL
 
 
 INFLUENCES
-  *  Mordor:  Depths of Dejenol
+  *  Mordor:  Depths of Dejenol, Demise
   *  Castlevania, Bloodborne, Steampunk
 
 GAME DESIGN
-  *  30x30 predesigned maps
-    *  Maps predesigned, enemy spawning semi-random
-    *  Rooms on each level assigned a number, with a handful of enemy packs having different chances to spawn in certain rooms
-  *  Can choose to play a solo character or create up to a 4 person party
-  *  Player can choose from various races for their characters
+  *  Player can choose from various races for their character
   *  Each character can join various guilds (classes)
   *  ~15-18 levels total, with different zones (tile sets) every ~3 levels
-  *  Enemies come in packs from 1-4 just like the player
-    *  Can be multiple packs per room
-    *  Enemies also have guilds, levels, and inventories like players
-      *  Enemy GL affect how much xp they give
-      *  Enemy drops based on their inventory
-        *  Each enemy drops 1 or 2 equipped items, all of their gold, and all of their not equipped inventory (things like potions, books)
+  *  Enemies also have guilds, levels, and inventories like players
+    *  Enemy GL affect how much xp they give
+    *  Enemy drops based on their inventory
+      *  Each enemy drops 1 or 2 equipped items, all of their gold, and all of their not equipped inventory (things like potions, books)
     *  Enemies can on each map level can spawn in a small range of guild levels
       *  e.g. A zombie on dungeon level 1 can spawn with a guild level from 1-3
 
