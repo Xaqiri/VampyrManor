@@ -1,5 +1,6 @@
 import sys
 import os
+import random
 import pygame as pyg
 import pyRL.colors as colors
 import pyRL.random_level_gen as rlg
@@ -29,10 +30,10 @@ WIN_HEIGHT = 960
 WIN_SIZE = WIN_WIDTH, WIN_HEIGHT
 GAME_PANEL_SIZE = WIN_WIDTH*.75, WIN_HEIGHT
 GAME_PANEL_CENTER = (GAME_PANEL_SIZE[0]//2, GAME_PANEL_SIZE[1]//2)
-DUNGEON_SIZE = (200, 200)
+DUNGEON_SIZE = (75, 75)
 NUM_X_TILES = int(GAME_PANEL_SIZE[0]/TILE_DIMENSION)
 NUM_Y_TILES = int(GAME_PANEL_SIZE[1]/TILE_DIMENSION)
-MAX_ENEMIES_PER_ROOM = 3
+MAX_ENEMIES_PER_ROOM = 4
 UI_PANEL_SIZE = WIN_WIDTH*.25, WIN_HEIGHT
 FOV_MODE = 'unexplored'
 screen = pyg.display.set_mode(WIN_SIZE)
@@ -47,31 +48,28 @@ party_panel = panel.Panel(screen=screen, origin=(ui_panel.origin[0], ui_panel.or
 message_panel = panel.Panel(screen=screen, origin=(ui_panel.origin[0], party_panel.origin[1]+party_panel.size[1]), size=(ui_panel.size[0], ui_panel.size[1]*.3), fg_color=colors.PURPLE, bg_color=colors.DRK_YELLOW, visible=True, name='Message Log')
 panels = [game_panel, ui_panel, inventory_panel, char_stats_panel, party_panel, message_panel]
 
-sprites = dict(wall=pyg.image.load(os.path.join('..', 'assets', 'sprites',
-                                              'wall2.png')).convert(),
-               wall2=pyg.image.load(os.path.join('..', 'assets', 'sprites',
-                                                     'wall2.png')).convert(),
-               floor=pyg.image.load(os.path.join('..', 'assets', 'sprites',
-                                               'wall2.png')).convert(),
-               player=pyg.image.load(os.path.join('..', 'assets', 'sprites',
-                                                'player.png')).convert(),
-               r=pyg.image.load(os.path.join('..', 'assets', 'sprites',
-                                                 'r.png')).convert())
-
-# Goes through each sprite and sets a certain color to be transparent and scales it to the appropriate dimensions
-for i in sprites:
-    sprites[i].set_colorkey(colors.TRANS)
-    sprites[i] = pyg.transform.scale(sprites[i], (TILE_DIMENSION, TILE_DIMENSION))
-
 def main():
-    # tile_colors = dict(
-    #     unexplored_tile = color_sprite(sprites['wall2'], colors.DRKR_GRAY),
-    #     explored_wall = color_sprite(sprites['wall2'], colors.RED),
-    #     explored_floor = color_sprite(sprites['floor'], colors.DRK_RED),
-    #     visible_wall = color_sprite(sprites['wall'], colors.GRAY),
-    #     visible_floor = color_sprite(sprites['floor'], colors.DRK_GRAY),
-    #     player_sprite = color_sprite(sprites['player'], colors.BLU_GRY)
-    # )
+    sprites = dict(
+        wall=pyg.image.load(os.path.join('..', 'assets', 'sprites',
+                                            'wall2.png')).convert(),
+        wall2=pyg.image.load(os.path.join('..', 'assets', 'sprites',
+                                            'wall2.png')).convert(),
+        floor=pyg.image.load(os.path.join('..', 'assets', 'sprites',
+                                            'wall2.png')).convert(),
+        dead=pyg.image.load(os.path.join('..', 'assets', 'sprites',
+                                            'dead.png')).convert(),
+        player=pyg.image.load(os.path.join('..', 'assets', 'sprites',
+                                            'player.png')).convert(),
+        b=pyg.image.load(os.path.join('..', 'assets', 'sprites',
+                                            'b.png')).convert(),
+        r=pyg.image.load(os.path.join('..', 'assets', 'sprites',
+                                            'r.png')).convert())
+
+    # Goes through each sprite and sets a certain color to be transparent and scales it to the appropriate dimensions
+    for i in sprites:
+        sprites[i].set_colorkey(colors.TRANS)
+        sprites[i] = pyg.transform.scale(sprites[i], (TILE_DIMENSION, TILE_DIMENSION))
+
     tile_colors = dict(
         unexplored_tile = color_sprite(sprites['wall2'], colors.DRK_RED),
         explored_wall = color_sprite(sprites['wall2'], colors.DRK_GRAY),
@@ -79,11 +77,13 @@ def main():
         visible_wall = color_sprite(sprites['wall'], colors.GRAY),
         visible_floor = color_sprite(sprites['floor'], colors.BLACK),
         player_sprite = color_sprite(sprites['player'], colors.BLU_GRY),
-        rat_sprite = color_sprite(sprites['r'], colors.BROWN)
+        bat_sprite = color_sprite(sprites['b'], colors.GRAY),
+        rat_sprite = color_sprite(sprites['r'], colors.BROWN),
+        dead_sprite = color_sprite(sprites['dead'], colors.RED)
     )
-    player_took_turn = False
 
-    player = Entity(x=1, y=1)
+    player_took_turn = False
+    player = monsters.generate_player(1, 1, tile_colors['player_sprite'])
     entities = [player]
     fov = pyRL.fov.FOV(vision_range=8, level_width=DUNGEON_SIZE[0], level_height=DUNGEON_SIZE[1], fov_mode=FOV_MODE)
     dungeon = make_map(fov, DUNGEON_SIZE, entities, MAX_ENEMIES_PER_ROOM, tile_colors)
@@ -102,11 +102,6 @@ def main():
         clock.tick(60)
     p.quit()
 
-def spawn_enemies(dungeon, tile_colors):
-    for i in range(1, len(dungeon.entities)):
-        rat = monsters.generate_rat(dungeon.entities[i][0], dungeon.entities[i][1], tile_colors['rat_sprite'], dungeon)
-        dungeon.entities[i] = rat
-
 def color_sprite(sprite, color):
     new_sprite = sprite.copy()
     new_sprite = pyg.PixelArray(new_sprite)
@@ -115,12 +110,22 @@ def color_sprite(sprite, color):
     new_sprite.set_colorkey(colors.TRANS)
     return new_sprite
 
+def spawn_enemies(dungeon, tile_colors):
+    for i in range(1, len(dungeon.entities)):
+        chance = random.randrange(10)
+        if chance < 8:
+            enemy = monsters.generate_rat(dungeon.entities[i][0], dungeon.entities[i][1], tile_colors['rat_sprite'])
+        else:
+            enemy = monsters.generate_bat(dungeon.entities[i][0], dungeon.entities[i][1], tile_colors['bat_sprite'])
+        dungeon.entities[i] = enemy
+
 def make_map(fov, DUNGEON_SIZE, entities, MAX_ENEMIES_PER_ROOM, tile_colors):
     dungeon = 0
     fov.clear()
     dungeon = rlg.RandomLevelGen(level_width=DUNGEON_SIZE[0], level_height=DUNGEON_SIZE[1], max_rooms=600, room_min_size=4, room_max_size=12, entities=entities)
     dungeon.make_level(MAX_ENEMIES_PER_ROOM=MAX_ENEMIES_PER_ROOM)
     spawn_enemies(dungeon, tile_colors)
+    print(len(dungeon.entities))
     return dungeon
 
 def input(dungeon, player, player_took_turn, fov, DUNGEON_SIZE, tile_colors):
@@ -132,13 +137,13 @@ def input(dungeon, player, player_took_turn, fov, DUNGEON_SIZE, tile_colors):
             if e.key == pyg.K_ESCAPE:
                 sys.exit()
             if e.key == pyg.K_UP:
-                move(dungeon, player, 0, -1)
+                move(dungeon, player, tile_colors, 0, -1)
             if e.key == pyg.K_DOWN:
-                move(dungeon, player, 0, 1)
+                move(dungeon, player, tile_colors, 0, 1)
             if e.key == pyg.K_LEFT:
-                move(dungeon, player, -1, 0)
+                move(dungeon, player, tile_colors, -1, 0)
             if e.key == pyg.K_RIGHT:
-                move(dungeon, player, 1, 0)
+                move(dungeon, player, tile_colors, 1, 0)
             if e.key == pyg.K_r:
                 p = dungeon.entities[0]
                 dungeon = make_map(fov, DUNGEON_SIZE, [p], MAX_ENEMIES_PER_ROOM, tile_colors)
@@ -186,11 +191,10 @@ def render(fov, dungeon, player, fps_counter, tile_colors):
                 screen.blit(tile_colors['visible_wall'], (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
             else:
                 screen.blit(tile_colors['visible_floor'], (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
-            if (v == (player.x, player.y)):
-                screen.blit(tile_colors['player_sprite'], (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
     for e in dungeon.entities:
         if e is not player and (e.x, e.y) in fov.visible_tiles:
             screen.blit(e.sprite, (TILE_DIMENSION*e.x+screen_offset[0], TILE_DIMENSION*e.y+screen_offset[1]))
+    screen.blit(tile_colors['player_sprite'], (TILE_DIMENSION*player.x+screen_offset[0], TILE_DIMENSION*player.y+screen_offset[1]))
     render_fps(fps_counter)
     pyg.display.flip()
 
@@ -200,14 +204,17 @@ def tile_in_bounds(tile):
         return True
     return False
 
-def move(dungeon, player, x, y):
+def move(dungeon, player, tile_colors, x, y):
     dx = player.x + x
     dy = player.y + y
     can_move = True
     if (dungeon.level[dx][dy] != 1):
         for e in dungeon.entities:
-            if (e.x, e.y) == (dx, dy):
-                print('You bump into the rat')
+            if (e.x, e.y) == (dx, dy) and e.blocks:
+                player.combat_component.attack(e)
+                if e.combat_component.hp <= 0:
+                    print('{0} has died!'.format(e.name))
+                    monsters.entity_death(e, tile_colors['dead_sprite'])
                 can_move = False
                 break
         if can_move:
