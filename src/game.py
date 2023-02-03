@@ -28,8 +28,8 @@ TEXT_SPACING = ui_font.get_linesize()
 
 SCALE = 2
 TILE_DIMENSION = int(8*SCALE)
-WIN_WIDTH = 1600
-WIN_HEIGHT = 900
+WIN_WIDTH = 1200
+WIN_HEIGHT = 600
 WIN_SIZE = WIN_WIDTH, WIN_HEIGHT
 GAME_PANEL_SIZE = WIN_WIDTH*.75, WIN_HEIGHT
 GAME_PANEL_CENTER = (GAME_PANEL_SIZE[0]//2, GAME_PANEL_SIZE[1]//2)
@@ -106,7 +106,7 @@ def main():
         fps_counter, player_took_turn, mode = update(clock, player_took_turn, fps_counter, fov, dungeon)
         render(fov, dungeon, player, fps_counter, tile_colors)
         clock.tick(60)
-    p.quit()
+    pyg.quit()
 
 def color_sprite(sprite, color):
     new_sprite = sprite.copy()
@@ -154,27 +154,27 @@ def input(dungeon, player, player_took_turn, fov, DUNGEON_SIZE, tile_colors):
             if e.key == pyg.K_DOWN:
                 message_render_offset -= TEXT_SPACING if len(messages)*TEXT_SPACING+message_render_offset > MAX_MESSAGES*TEXT_SPACING else 0
                 ends_turn = False
-            if e.key == pyg.K_KP1:
+            if e.key == pyg.K_KP1 or e.key == pyg.K_z:
                 move(dungeon, player, tile_colors, -1, 1)
-            if e.key == pyg.K_KP2:
+            if e.key == pyg.K_KP2 or e.key == pyg.K_x:
                 move(dungeon, player, tile_colors, 0, 1)
-            if e.key == pyg.K_KP3:
+            if e.key == pyg.K_KP3 or e.key == pyg.K_c:
                 move(dungeon, player, tile_colors, 1, 1)
-            if e.key == pyg.K_KP4:
+            if e.key == pyg.K_KP4 or e.key == pyg.K_a:
                 move(dungeon, player, tile_colors, -1, 0)
-            if e.key == pyg.K_KP5:
+            if e.key == pyg.K_KP5 or e.key == pyg.K_s:
                 message('You idle for a moment', colors.WHITE)
-            if e.key == pyg.K_KP6:
+            if e.key == pyg.K_KP6 or e.key == pyg.K_d:
                 move(dungeon, player, tile_colors, 1, 0)
-            if e.key == pyg.K_KP7:
+            if e.key == pyg.K_KP7 or e.key == pyg.K_q:
                 move(dungeon, player, tile_colors, -1, -1)
-            if e.key == pyg.K_KP8:
+            if e.key == pyg.K_KP8 or e.key == pyg.K_w:
                 move(dungeon, player, tile_colors, 0, -1)
-            if e.key == pyg.K_KP9:
+            if e.key == pyg.K_KP9 or e.key == pyg.K_e:
                 move(dungeon, player, tile_colors, 1, -1)
-            if e.key == pyg.K_x:
+            if e.key == pyg.K_v:
                 message('You now have {0} xp'.format(player.xp), colors.DRK_GREEN)
-            if e.key == pyg.K_r:
+            if e.key == pyg.K_l:
                 p = dungeon.entities[0]
                 dungeon = make_map(fov, DUNGEON_SIZE, [p], MAX_ENEMIES_PER_ROOM, tile_colors)
             player_took_turn = True if ends_turn else False
@@ -261,7 +261,13 @@ def render_fps(fps_counter):
 
 def message(message, color):
     global message_render_offset
-    messages.append((message, color))
+    if len(message) > 20:
+        m1 = message[0:20]
+        m2 = message[20:]
+        messages.append((m1, color))
+        messages.append((m2, color))
+    else:
+        messages.append((message, color))
     if len(messages) > MAX_MESSAGES:
         message_render_offset -= TEXT_SPACING
     print(message_render_offset, len(messages))
