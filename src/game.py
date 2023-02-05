@@ -1,3 +1,4 @@
+import math
 import sys
 import os
 import random
@@ -11,10 +12,10 @@ import monsters
 
 # TODO
 '''
-Setup method to read in external files that contain  definitions for things like the map, enemies, and items
+Setup method to read in external files that contain definitions for things like the map, enemies, and items
 Add options for starting the game explored/unexplored
-Use pyg.font.Font.size to allow for wordwrapping on longer messages
 BUG - Enemies can spawn on player
+BUG - Messages don't scroll properly, cutting off the bottom message
 '''
 
 pyg.init()
@@ -22,9 +23,8 @@ GAME_VERSION = '0.0.0'
 pyg.display.set_caption('Vampyr Manor' + ', version: ' + GAME_VERSION)
 pyg.key.set_repeat(300, 50)
 
-font_size = 24
-ui_font = pyg.font.SysFont('consolas', font_size)
-TEXT_SPACING = ui_font.get_linesize()
+FONT_SIZE = 32
+ui_font = pyg.font.SysFont('consolas', FONT_SIZE)
 
 SCALE = 2
 TILE_DIMENSION = int(8*SCALE)
@@ -39,6 +39,8 @@ NUM_Y_TILES = int(GAME_PANEL_SIZE[1]/TILE_DIMENSION)
 MAX_ENEMIES_PER_ROOM = 4
 UI_PANEL_SIZE = WIN_WIDTH*.25, WIN_HEIGHT
 FOV_MODE = 'unexplored'
+TEXT_SPACING = ui_font.get_linesize()
+
 screen = pyg.display.set_mode(WIN_SIZE)
 colors = colors.Colors()
 messages = []
@@ -52,7 +54,7 @@ char_stats_panel = panel.Panel(screen=screen, origin=(ui_panel.origin[0]+invento
 party_panel = panel.Panel(screen=screen, origin=(ui_panel.origin[0], ui_panel.origin[1]+inventory_panel.size[1]), size=(ui_panel.size[0], ui_panel.size[1]*.35), fg_color=colors.PURPLE, bg_color=colors.DRK_BLUE, visible=True, name='Party')
 message_panel = panel.Panel(screen=screen, origin=(ui_panel.origin[0], party_panel.origin[1]+party_panel.size[1]), size=(ui_panel.size[0], ui_panel.size[1]*.3), fg_color=colors.PURPLE, bg_color=colors.DRKR_GRAY, visible=True, name='Message Log')
 panels = [game_panel, ui_panel, inventory_panel, char_stats_panel, party_panel, message_panel]
-MAX_MESSAGES = message_panel.size[1] / TEXT_SPACING - 1
+MAX_MESSAGES = math.floor(message_panel.size[1] / TEXT_SPACING)
 
 def main():
     sprites = dict(
@@ -135,7 +137,6 @@ def make_map(fov, DUNGEON_SIZE, entities, MAX_ENEMIES_PER_ROOM, tile_colors):
     dungeon = rlg.RandomLevelGen(level_width=DUNGEON_SIZE[0], level_height=DUNGEON_SIZE[1], max_rooms=600, room_min_size=4, room_max_size=12, entities=entities)
     dungeon.make_level(MAX_ENEMIES_PER_ROOM=MAX_ENEMIES_PER_ROOM)
     spawn_enemies(dungeon, tile_colors)
-    print(len(dungeon.entities))
     return dungeon
 
 def input(dungeon, player, player_took_turn, fov, DUNGEON_SIZE, tile_colors):
@@ -215,9 +216,8 @@ def render(fov, dungeon, player, fps_counter, tile_colors):
                     screen.blit(tile_colors['explored_wall'], (TILE_DIMENSION*x+screen_offset[0], TILE_DIMENSION*y+screen_offset[1]))
                 else:
                     screen.blit(tile_colors['explored_floor'], (TILE_DIMENSION*x+screen_offset[0], TILE_DIMENSION*y+screen_offset[1]))
-            # else:
-            #     screen.blit(tile_colors['unexplored_tile'], (TILE_DIMENSION*x+screen_offset[0], TILE_DIMENSION*y+screen_offset[1]))
     for v in fov.visible_tiles:
+        # Only render tiles that are actually on screen
         if tile_in_bounds(v):
             if dungeon.level[v[0]][v[1]] == 1:
                 screen.blit(tile_colors['visible_wall'], (TILE_DIMENSION*v[0]+screen_offset[0], TILE_DIMENSION*v[1]+screen_offset[1]))
@@ -231,6 +231,7 @@ def render(fov, dungeon, player, fps_counter, tile_colors):
     pyg.display.flip()
 
 def tile_in_bounds(tile):
+    ''' Check to see if tile will fit in the display area '''
     global screen_offset
     if TILE_DIMENSION*tile[0]+screen_offset[0]+TILE_DIMENSION < GAME_PANEL_SIZE[0] and TILE_DIMENSION*tile[1]+screen_offset[1] < GAME_PANEL_SIZE[1]:
         return True
@@ -261,15 +262,36 @@ def render_fps(fps_counter):
 
 def message(message, color):
     global message_render_offset
-    if len(message) > 20:
-        m1 = message[0:20]
-        m2 = message[20:]
-        messages.append((m1, color))
-        messages.append((m2, color))
+    # Number of characters that will fit in the panel
+    wrap = calc_wrap(message_panel.size[0])
+    start_indices = [0]
+    if len(message) > wrap:
+        # Going from 0 -> len(message), if i jumps by wrap it will give start indices of each message part
+        # e.g. if wrap == 21, start_indices == [0, 21, 42]
+        for i in range(wrap, len(message), wrap):
+            start_indices.append(i)
+        # The length of start_indices indicates how many times the 
+        # message needs to be split
+        for i in range(len(start_indices)):
+            if i != (len(start_indices) - 1):
+                messages.append((message[start_indices[i]:start_indices[i+1]], color))
+            else:
+                messages.append((message[start_indices[i]:], color))
     else:
         messages.append((message, color))
+    # Scrolls the message panel show it only shows the most recent messages
     if len(messages) > MAX_MESSAGES:
-        message_render_offset -= TEXT_SPACING
+        message_render_offset -= TEXT_SPACING * len(start_indices)
     print(message_render_offset, len(messages))
+
+def calc_wrap(width):
+    '''
+    Produces the maximum number of characters a panel can display
+    '''
+    global FONT_SIZE
+    # 1.68 is a ratio gotten from testing with 24pt font and 300px width
+    # Through manual testing 21 characters would fit in the panel
+    # 24/(300/21) = 1.68, (300/24)*1.68 = 21
+    return math.floor((width/FONT_SIZE)*1.68)-1
 
 main()
